@@ -35,7 +35,7 @@ export function QuickOrderForm({ onSuccess }: { onSuccess: () => void }) {
     if (watchedCustomerId) {
       const related = quotations.filter(
         q => q.customer_id === watchedCustomerId && 
-        ['Approved', 'Sent', 'Negotiation', 'Accepted'].includes(q.status)
+        q.status !== 'Rejected' && q.status !== 'Expired'
       );
       setFilteredQuotes(related);
       setValue('quotation_id', '');
@@ -104,9 +104,13 @@ export function QuickOrderForm({ onSuccess }: { onSuccess: () => void }) {
             {...register('quotation_id')}
             disabled={!watchedCustomerId}
           >
-            <option value="">-- Select Quotation --</option>
+            <option value="">
+              {filteredQuotes.length === 0 ? '-- No Quotations Found for Customer --' : '-- Select Quotation --'}
+            </option>
             {filteredQuotes.map(q => (
-              <option key={q.id} value={q.id}>{q.quotation_code} (Grand Total: ₹{q.grand_total.toLocaleString()})</option>
+              <option key={q.id} value={q.id}>
+                {q.quotation_code} - [{q.status}] (Total: ₹{Number(q.grand_total || 0).toLocaleString('en-IN')})
+              </option>
             ))}
           </select>
           {errors.quotation_id && <p className="text-rose-500 text-xs mt-1">{errors.quotation_id.message}</p>}
