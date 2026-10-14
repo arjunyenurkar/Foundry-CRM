@@ -191,14 +191,14 @@ export interface Order {
   id: string; // UUID
   order_code: string; // ORD-XXXXX
   customer_id: string; // Customer UUID
-  quotation_id: string; // Quotation UUID
+  quotation_id?: string; // Quotation UUID
   po_number: string;
   po_date: string;
   order_date: string;
   expected_delivery_date: string;
   payment_terms: string;
   delivery_terms: string;
-  sales_person_id: string; // User ID
+  sales_person_id?: string; // User ID
   status: OrderStatus;
   total_amount: number;
   remarks?: string;

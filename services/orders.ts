@@ -1,6 +1,6 @@
 import { Order, OrderItem } from '../types';
 import { supabase } from '../lib/supabaseClient';
-import { generateCode, logActivity } from './localStore';
+import { generateCode, logActivity, getStoredUser } from './localStore';
 import { QuotationService } from './quotations';
 
 export const OrderService = {
@@ -127,6 +127,10 @@ export const OrderService = {
       };
     });
 
+    // Check sales_person_id validity
+    const storedUser = getStoredUser();
+    const salesperson = quotation.sales_person_id || storedUser?.id || undefined;
+
     const newOrder = await this.create({
       customer_id: quotation.customer_id,
       quotation_id: quotation.id,
@@ -134,9 +138,9 @@ export const OrderService = {
       po_date: poDate,
       order_date: new Date().toISOString(),
       expected_delivery_date: expectedDeliveryDate,
-      payment_terms: quotation.payment_terms,
-      delivery_terms: quotation.delivery_terms,
-      sales_person_id: quotation.sales_person_id,
+      payment_terms: quotation.payment_terms || '30 Days Net',
+      delivery_terms: quotation.delivery_terms || 'Ex-Works',
+      sales_person_id: salesperson,
       status: 'Confirmed',
       total_amount: quotation.grand_total,
       remarks: remarks || `Converted from quotation ${quotation.quotation_code}`

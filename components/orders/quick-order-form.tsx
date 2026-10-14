@@ -52,14 +52,14 @@ export function QuickOrderForm({ onSuccess }: { onSuccess: () => void }) {
       const qObj = quotations.find(q => q.id === watchedQuotationId);
       if (qObj) {
         setSelectedQuote(qObj);
-        setValue('payment_terms', qObj.payment_terms);
-        setValue('delivery_terms', qObj.delivery_terms);
-        setValue('sales_person_id', qObj.sales_person_id);
+        setValue('payment_terms', qObj.payment_terms || '30 Days Net');
+        setValue('delivery_terms', qObj.delivery_terms || 'Ex-Works');
+        setValue('sales_person_id', qObj.sales_person_id || currentUser.id);
       }
     } else {
       setSelectedQuote(null);
     }
-  }, [watchedQuotationId, quotations, setValue]);
+  }, [watchedQuotationId, quotations, setValue, currentUser.id]);
 
   const onSubmit = async (data: FormValues) => {
     try {
