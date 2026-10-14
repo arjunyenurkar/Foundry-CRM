@@ -35,14 +35,17 @@ export const CustomerService = {
     const existing = await this.getAll();
     const newCode = generateCode('CUS', existing);
 
+    const cleanCustomerData = {
+      ...customerData,
+      sales_person_id: customerData.sales_person_id && customerData.sales_person_id.trim() !== '' ? customerData.sales_person_id : null,
+      customer_code: newCode,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+
     const { data, error } = await supabase
       .from('customers')
-      .insert({
-        ...customerData,
-        customer_code: newCode,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      })
+      .insert(cleanCustomerData)
       .select()
       .single();
 

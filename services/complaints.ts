@@ -47,19 +47,26 @@ export const ComplaintService = {
     const existing = await this.getAll();
     const newCode = generateCode('CMP', existing);
 
+    const cleanData = {
+      ...complaintData,
+      order_id: complaintData.order_id && complaintData.order_id.trim() !== '' ? complaintData.order_id : null,
+      item_id: complaintData.item_id && complaintData.item_id.trim() !== '' ? complaintData.item_id : null,
+      dispatch_id: complaintData.dispatch_id && complaintData.dispatch_id.trim() !== '' ? complaintData.dispatch_id : null,
+      responsible_person_id: complaintData.responsible_person_id && complaintData.responsible_person_id.trim() !== '' ? complaintData.responsible_person_id : null,
+      target_resolution_date: complaintData.target_resolution_date && complaintData.target_resolution_date.trim() !== '' ? complaintData.target_resolution_date : null,
+      complaint_code: newCode,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+
     const { data, error } = await supabase
       .from('complaints')
-      .insert({
-        ...complaintData,
-        complaint_code: newCode,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      })
+      .insert(cleanData)
       .select()
       .single();
 
     if (error || !data) {
-      console.error('Error creating complaint:', error);
+      console.error('Error creating complaint in Supabase:', error);
       throw new Error(error?.message || 'Failed to register customer complaint');
     }
 

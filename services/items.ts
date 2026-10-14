@@ -59,14 +59,17 @@ export const ItemService = {
     const allItems = await this.getAll();
     const newCode = generateCode('ITM', allItems);
 
+    const cleanItemData = {
+      ...itemData,
+      customer_id: itemData.customer_id && itemData.customer_id.trim() !== '' ? itemData.customer_id : null,
+      item_code: newCode,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+
     const { data, error } = await supabase
       .from('items')
-      .insert({
-        ...itemData,
-        item_code: newCode,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      })
+      .insert(cleanItemData)
       .select()
       .single();
 

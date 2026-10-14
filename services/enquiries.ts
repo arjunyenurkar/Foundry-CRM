@@ -63,14 +63,18 @@ export const EnquiryService = {
     const newCode = generateCode('ENQ', existing);
 
     // 1. Insert parent enquiry
+    const cleanEnquiryData = {
+      ...enquiryData,
+      sales_person_id: enquiryData.sales_person_id && enquiryData.sales_person_id.trim() !== '' ? enquiryData.sales_person_id : null,
+      expected_order_date: enquiryData.expected_order_date && enquiryData.expected_order_date.trim() !== '' ? enquiryData.expected_order_date : null,
+      enquiry_code: newCode,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+
     const { data: newEnquiry, error: enqError } = await supabase
       .from('enquiries')
-      .insert({
-        ...enquiryData,
-        enquiry_code: newCode,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      })
+      .insert(cleanEnquiryData)
       .select()
       .single();
 

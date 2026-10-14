@@ -63,14 +63,18 @@ export const OrderService = {
     const existing = await this.getAll();
     const newCode = generateCode('ORD', existing);
 
+    const cleanOrderData = {
+      ...orderData,
+      quotation_id: orderData.quotation_id && orderData.quotation_id.trim() !== '' ? orderData.quotation_id : null,
+      sales_person_id: orderData.sales_person_id && orderData.sales_person_id.trim() !== '' ? orderData.sales_person_id : null,
+      order_code: newCode,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+
     const { data: newOrder, error: ordErr } = await supabase
       .from('orders')
-      .insert({
-        ...orderData,
-        order_code: newCode,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      })
+      .insert(cleanOrderData)
       .select()
       .single();
 

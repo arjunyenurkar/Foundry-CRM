@@ -95,19 +95,23 @@ export const QuotationService = {
 
     const grand_total = subtotal - totalDiscount + totalTax;
 
+    const cleanQuotationData = {
+      ...quotationData,
+      enquiry_id: quotationData.enquiry_id && quotationData.enquiry_id.trim() !== '' ? quotationData.enquiry_id : null,
+      sales_person_id: quotationData.sales_person_id && quotationData.sales_person_id.trim() !== '' ? quotationData.sales_person_id : null,
+      quotation_code: newCode,
+      subtotal,
+      discount_amount: totalDiscount,
+      tax_amount: totalTax,
+      grand_total,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+
     // Insert quotation
     const { data: newQuo, error: quoErr } = await supabase
       .from('quotations')
-      .insert({
-        ...quotationData,
-        quotation_code: newCode,
-        subtotal,
-        discount_amount: totalDiscount,
-        tax_amount: totalTax,
-        grand_total,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      })
+      .insert(cleanQuotationData)
       .select()
       .single();
 

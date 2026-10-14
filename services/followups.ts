@@ -47,18 +47,25 @@ export const FollowUpService = {
     const existing = await this.getAll();
     const newCode = generateCode('FOL', existing);
 
+    // Sanitize optional UUIDs to null if empty string
+    const cleanData = {
+      ...followUpData,
+      enquiry_id: followUpData.enquiry_id && followUpData.enquiry_id.trim() !== '' ? followUpData.enquiry_id : null,
+      quotation_id: followUpData.quotation_id && followUpData.quotation_id.trim() !== '' ? followUpData.quotation_id : null,
+      assigned_to: followUpData.assigned_to && followUpData.assigned_to.trim() !== '' ? followUpData.assigned_to : null,
+      next_follow_up_date: followUpData.next_follow_up_date && followUpData.next_follow_up_date.trim() !== '' ? followUpData.next_follow_up_date : null,
+      follow_up_code: newCode,
+      created_at: new Date().toISOString()
+    };
+
     const { data, error } = await supabase
       .from('follow_ups')
-      .insert({
-        ...followUpData,
-        follow_up_code: newCode,
-        created_at: new Date().toISOString()
-      })
+      .insert(cleanData)
       .select()
       .single();
 
     if (error || !data) {
-      console.error('Error creating follow up:', error);
+      console.error('Error creating follow up in Supabase:', error);
       throw new Error(error?.message || 'Failed to create follow up');
     }
 
