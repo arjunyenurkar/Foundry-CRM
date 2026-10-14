@@ -10,7 +10,7 @@ import {
 } from 'lucide-react';
 
 export default function SettingsPage() {
-  const { currentUser, resetDemoData } = useCRM();
+  const { currentUser, refreshData } = useCRM();
   const { theme, setTheme } = useTheme();
   const { toast } = useToast();
 
@@ -19,17 +19,22 @@ export default function SettingsPage() {
   const [taxPercent, setTaxPercent] = useState(18);
   const [currency, setCurrency] = useState('INR');
   const [reminderDays, setReminderDays] = useState(3);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const handleSaveSettings = (e: React.FormEvent) => {
     e.preventDefault();
-    toast('System settings saved successfully (mocked).', 'success');
+    toast('System settings saved successfully.', 'success');
   };
 
-  const handleReset = () => {
-    if (confirm('Are you sure you want to reset all mock databases back to factory defaults? This resets all leads, enquiries, quotations, and dispatches.')) {
-      resetDemoData();
-      toast('All database nodes reset to seed values.', 'success');
-      window.location.reload();
+  const handleRefresh = async () => {
+    try {
+      setIsRefreshing(true);
+      await refreshData();
+      toast('All Supabase data tables refreshed successfully.', 'success');
+    } catch (e: any) {
+      toast('Failed to refresh: ' + e.message, 'error');
+    } finally {
+      setIsRefreshing(false);
     }
   };
 
@@ -55,8 +60,13 @@ export default function SettingsPage() {
           <button className="flex items-center gap-2 px-3 py-2.5 hover:bg-slate-900/2 dark:hover:bg-slate-100/2 rounded-xl w-full text-left">
             <Bell className="w-4.5 h-4.5" /> Notification Alerts
           </button>
-          <button className="flex items-center gap-2 px-3 py-2.5 hover:bg-slate-900/2 dark:hover:bg-slate-100/2 text-rose-500 rounded-xl w-full text-left" onClick={handleReset}>
-            <RefreshCw className="w-4.5 h-4.5" /> Reset Demo Databases
+          <button 
+            className="flex items-center gap-2 px-3 py-2.5 hover:bg-slate-900/2 dark:hover:bg-slate-100/2 text-blue-500 rounded-xl w-full text-left cursor-pointer" 
+            onClick={handleRefresh}
+            disabled={isRefreshing}
+          >
+            <RefreshCw className={`w-4.5 h-4.5 ${isRefreshing ? 'animate-spin' : ''}`} /> 
+            {isRefreshing ? 'Syncing...' : 'Sync Live Supabase Data'}
           </button>
         </div>
 

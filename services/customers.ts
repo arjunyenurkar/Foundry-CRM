@@ -1,75 +1,133 @@
-import { Customer, CustomerStatus } from '../types';
-import { getStore, saveStore, generateCode, logActivity } from './localStore';
+import { Customer } from '../types';
+import { supabase } from '../lib/supabaseClient';
+import { generateCode, logActivity } from './localStore';
 
 export const CustomerService = {
   async getAll(): Promise<Customer[]> {
-    const store = getStore();
-    return store.customers;
+    const { data, error } = await supabase
+      .from('customers')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching customers from Supabase:', error);
+      return [];
+    }
+    return data || [];
   },
 
   async getById(id: string): Promise<Customer | undefined> {
-    const store = getStore();
-    return store.customers.find(c => c.id === id);
+    const { data, error } = await supabase
+      .from('customers')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (error) {
+      console.error('Error fetching customer by id:', error);
+      return undefined;
+    }
+    return data || undefined;
   },
 
   async create(customerData: Omit<Customer, 'id' | 'customer_code' | 'created_at'>): Promise<Customer> {
-    const store = getStore();
-    const newId = `cus-${Date.now()}`;
-    const newCode = generateCode('CUS', store.customers);
+    // Generate next customer code based on highest in DB
+    const existing = await this.getAll();
+    const newCode = generateCode('CUS', existing);
 
-    const newCustomer: Customer = {
-      ...customerData,
-      id: newId,
-      customer_code: newCode,
-      created_at: new Date().toISOString(),
-    };
+    const { data, error } = await supabase
+      .from('customers')
+      .insert({
+        ...customerData,
+        customer_code: newCode,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      })
+      .select()
+      .single();
 
-    store.customers.unshift(newCustomer);
-    saveStore(store);
+    if (error) {
+      console.error('Error creating customer:', error);
+      throw new Error(error.message);
+    }
 
-    logActivity(newId, 'customer', newId, newCode, `Customer/Prospect '${customerData.company_name}' was registered.`);
-    return newCustomer;
+    await logActivity(
+      data.id,
+      'customer',
+      data.id,
+      data.customer_code,
+      `Customer/Prospect '${customerData.company_name}' was registered.`
+    );
+
+    return data;
   },
 
   async update(id: string, updates: Partial<Customer>): Promise<Customer> {
-    const store = getStore();
-    const index = store.customers.findIndex(c => c.id === id);
-    if (index === -1) throw new Error('Customer not found');
+    const current = await this.getById(id);
 
-    const oldVal = store.customers[index];
-    const updatedCustomer = {
-      ...oldVal,
-      ...updates,
-    };
+    const { data, error } = await supabase
+      .from('customers')
+      .update({
+        ...updates,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', id)
+      .select()
+      .single();
 
-    store.customers[index] = updatedCustomer;
-    saveStore(store);
-
-    if (updates.status && updates.status !== oldVal.status) {
-      logActivity(
-        id, 
-        'customer', 
-        id, 
-        oldVal.customer_code, 
-        `Customer status changed from ${oldVal.status} to ${updates.status}.`,
-        'status_change'
-      );
-    } else {
-      logActivity(id, 'customer', id, oldVal.customer_code, `Customer profile updated.`, 'update');
+    if (error) {
+      console.error('Error updating customer:', error);
+      throw new Error(error.message);
     }
 
-    return updatedCustomer;
+    if (current) {
+      if (updates.status && updates.status !== current.status) {
+        await logActivity(
+          id,
+          'customer',
+          id,
+          current.customer_code,
+          `Customer status changed from ${current.status} to ${updates.status}.`,
+          'status_change'
+        );
+      } else {
+        await logActivity(
+          id,
+          'customer',
+          id,
+          current.customer_code,
+          `Customer profile updated.`,
+          'update'
+        );
+      }
+    }
+
+    return data;
   },
 
   async delete(id: string): Promise<void> {
-    const store = getStore();
-    const customer = store.customers.find(c => c.id === id);
-    if (!customer) throw new Error('Customer not found');
-    
-    // Instead of full deletion, we can mark as Inactive or delete for mock simplicity
-    store.customers = store.customers.filter(c => c.id !== id);
-    saveStore(store);
-    logActivity(id, 'customer', id, customer.customer_code, `Customer '${customer.company_name}' deleted.`, 'delete');
+    const current = await this.getById(id);
+
+    const { error } = await supabase
+      .from('customers')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      console.error('Error deleting customer:', error);
+      throw new Error(error.message);
+    }
+
+    if (current) {
+      await logActivity(
+        id,
+        'customer',
+        id,
+        current.customer_code,
+        `Customer '${current.company_name}' deleted.`,
+        'delete'
+      );
+    }
   },
 
   async convertLead(id: string): Promise<Customer> {

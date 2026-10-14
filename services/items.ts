@@ -1,64 +1,111 @@
 import { Item } from '../types';
-import { getStore, saveStore, generateCode } from './localStore';
+import { supabase } from '../lib/supabaseClient';
+import { generateCode } from './localStore';
 
 export const ItemService = {
   async getAll(): Promise<Item[]> {
-    const store = getStore();
-    return store.items;
+    const { data, error } = await supabase
+      .from('items')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching items from Supabase:', error);
+      return [];
+    }
+    return data || [];
   },
 
   async getById(id: string): Promise<Item | undefined> {
-    const store = getStore();
-    return store.items.find(i => i.id === id);
+    const { data, error } = await supabase
+      .from('items')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (error) {
+      console.error('Error fetching item by id:', error);
+      return undefined;
+    }
+    return data || undefined;
   },
 
   async getByCustomerId(customerId: string): Promise<Item[]> {
-    const store = getStore();
-    return store.items.filter(i => i.customer_id === customerId);
+    const { data, error } = await supabase
+      .from('items')
+      .select('*')
+      .eq('customer_id', customerId);
+
+    if (error) {
+      console.error('Error fetching items for customer:', error);
+      return [];
+    }
+    return data || [];
   },
 
   async findOrCreate(itemData: Omit<Item, 'id' | 'item_code' | 'created_at'>): Promise<Item> {
-    const store = getStore();
-    
     // Check if item with same drawing number and revision already exists
-    const existing = store.items.find(
-      i => i.drawing_number.toLowerCase() === itemData.drawing_number.toLowerCase() &&
-           i.drawing_revision.toLowerCase() === itemData.drawing_revision.toLowerCase()
-    );
+    const { data: existingList } = await supabase
+      .from('items')
+      .select('*')
+      .ilike('drawing_number', itemData.drawing_number.trim())
+      .ilike('drawing_revision', itemData.drawing_revision.trim())
+      .limit(1);
 
-    if (existing) {
-      return existing;
+    if (existingList && existingList.length > 0) {
+      return existingList[0];
     }
 
-    const newId = `itm-${Date.now()}`;
-    const newCode = generateCode('ITM', store.items);
+    const allItems = await this.getAll();
+    const newCode = generateCode('ITM', allItems);
 
-    const newItem: Item = {
-      ...itemData,
-      id: newId,
-      item_code: newCode,
-      created_at: new Date().toISOString(),
-    };
+    const { data, error } = await supabase
+      .from('items')
+      .insert({
+        ...itemData,
+        item_code: newCode,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      })
+      .select()
+      .single();
 
-    store.items.unshift(newItem);
-    saveStore(store);
+    if (error) {
+      console.error('Error creating item:', error);
+      throw new Error(error.message);
+    }
 
-    return newItem;
+    return data;
   },
 
   async update(id: string, updates: Partial<Item>): Promise<Item> {
-    const store = getStore();
-    const index = store.items.findIndex(i => i.id === id);
-    if (index === -1) throw new Error('Item not found');
+    const { data, error } = await supabase
+      .from('items')
+      .update({
+        ...updates,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', id)
+      .select()
+      .single();
 
-    const updatedItem = {
-      ...store.items[index],
-      ...updates
-    };
+    if (error) {
+      console.error('Error updating item:', error);
+      throw new Error(error.message);
+    }
 
-    store.items[index] = updatedItem;
-    saveStore(store);
+    return data;
+  },
 
-    return updatedItem;
+  async delete(id: string): Promise<void> {
+    const { error } = await supabase
+      .from('items')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      console.error('Error deleting item:', error);
+      throw new Error(error.message);
+    }
   }
 };

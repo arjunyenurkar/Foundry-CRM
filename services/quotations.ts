@@ -1,40 +1,80 @@
 import { Quotation, QuotationItem, QuotationStatus } from '../types';
-import { getStore, saveStore, generateCode, logActivity } from './localStore';
+import { supabase } from '../lib/supabaseClient';
+import { generateCode, logActivity } from './localStore';
 
 export const QuotationService = {
   async getAll(): Promise<Quotation[]> {
-    const store = getStore();
-    return store.quotations;
+    const { data, error } = await supabase
+      .from('quotations')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching quotations from Supabase:', error);
+      return [];
+    }
+    return data || [];
+  },
+
+  async getAllItems(): Promise<QuotationItem[]> {
+    const { data, error } = await supabase
+      .from('quotation_items')
+      .select('*');
+
+    if (error) {
+      console.error('Error fetching quotation items:', error);
+      return [];
+    }
+    return data || [];
   },
 
   async getById(id: string): Promise<Quotation | undefined> {
-    const store = getStore();
-    return store.quotations.find(q => q.id === id);
+    const { data, error } = await supabase
+      .from('quotations')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (error) {
+      console.error('Error fetching quotation by id:', error);
+      return undefined;
+    }
+    return data || undefined;
   },
 
   async getItemsByQuotationId(quotationId: string): Promise<QuotationItem[]> {
-    const store = getStore();
-    return store.quotationItems.filter(qi => qi.quotation_id === quotationId);
+    const { data, error } = await supabase
+      .from('quotation_items')
+      .select('*')
+      .eq('quotation_id', quotationId);
+
+    if (error) {
+      console.error('Error fetching items for quotation:', error);
+      return [];
+    }
+    return data || [];
   },
 
   async create(
     quotationData: Omit<Quotation, 'id' | 'quotation_code' | 'subtotal' | 'tax_amount' | 'discount_amount' | 'grand_total' | 'created_at' | 'updated_at'>,
     items: Omit<QuotationItem, 'id' | 'quotation_id' | 'amount' | 'discount_amount' | 'tax_amount'>[]
   ): Promise<Quotation> {
-    const store = getStore();
-    const newId = `q-${Date.now()}`;
-    const newCode = generateCode('QUO', store.quotations);
+    const existing = await this.getAll();
+    const newCode = generateCode('QUO', existing);
 
-    // Calculate totals programmatically
+    // Fetch enquiry items to calculate quantities accurately
+    const { data: enqItems } = await supabase
+      .from('enquiry_items')
+      .select('id, quantity');
+
     let subtotal = 0;
     let totalDiscount = 0;
     let totalTax = 0;
 
-    const newItems: QuotationItem[] = items.map((item, idx) => {
-      const qItemId = `q-item-${Date.now()}-${idx}`;
-      const enqItem = store.enquiryItems.find(ei => ei.id === item.enquiry_item_id);
-      const qty = enqItem ? enqItem.quantity : 1;
-      
+    const preparedItems = items.map((item) => {
+      const matched = enqItems?.find(ei => ei.id === item.enquiry_item_id);
+      const qty = matched ? matched.quantity : 1;
+
       const itemAmount = item.rate * qty;
       const discountVal = itemAmount * (item.discount_percent / 100);
       const netAmount = itemAmount - discountVal;
@@ -47,8 +87,6 @@ export const QuotationService = {
 
       return {
         ...item,
-        id: qItemId,
-        quotation_id: newId,
         discount_amount: discountVal,
         tax_amount: taxVal,
         amount: finalAmount
@@ -57,152 +95,151 @@ export const QuotationService = {
 
     const grand_total = subtotal - totalDiscount + totalTax;
 
-    const newQuotation: Quotation = {
-      ...quotationData,
-      id: newId,
-      quotation_code: newCode,
-      subtotal,
-      discount_amount: totalDiscount,
-      tax_amount: totalTax,
-      grand_total,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    };
-
-    store.quotations.unshift(newQuotation);
-    store.quotationItems.push(...newItems);
-
-    // If quotation is created, change enquiry status to "Quotation Sent" if quotation status is Sent,
-    // or keep as "Quotation Pending" if Draft.
-    if (quotationData.status === 'Sent' || quotationData.status === 'Under Approval') {
-      const enq = store.enquiries.find(e => e.id === quotationData.enquiry_id);
-      if (enq) {
-        enq.status = quotationData.status === 'Sent' ? 'Quotation Sent' : 'Under Review';
-        enq.updated_at = new Date().toISOString();
-      }
-    }
-
-    saveStore(store);
-    logActivity(quotationData.customer_id, 'quotation', newId, newCode, `Quotation ${newCode} was drafted.`);
-
-    return newQuotation;
-  },
-
-  async update(id: string, updates: Partial<Quotation>, items?: Omit<QuotationItem, 'id' | 'quotation_id' | 'amount' | 'discount_amount' | 'tax_amount'>[]): Promise<Quotation> {
-    const store = getStore();
-    const index = store.quotations.findIndex(q => q.id === id);
-    if (index === -1) throw new Error('Quotation not found');
-
-    const oldVal = store.quotations[index];
-
-    let computedUpdates = { ...updates };
-
-    if (items) {
-      // Re-calculate all items if provided
-      store.quotationItems = store.quotationItems.filter(qi => qi.quotation_id !== id);
-      
-      let subtotal = 0;
-      let totalDiscount = 0;
-      let totalTax = 0;
-
-      const newItems: QuotationItem[] = items.map((item, idx) => {
-        const qItemId = `q-item-${Date.now()}-${idx}`;
-        const enqItem = store.enquiryItems.find(ei => ei.id === item.enquiry_item_id);
-        const qty = enqItem ? enqItem.quantity : 1;
-        
-        const itemAmount = item.rate * qty;
-        const discountVal = itemAmount * (item.discount_percent / 100);
-        const netAmount = itemAmount - discountVal;
-        const taxVal = netAmount * (item.tax_percent / 100);
-        const finalAmount = netAmount + taxVal;
-
-        subtotal += itemAmount;
-        totalDiscount += discountVal;
-        totalTax += taxVal;
-
-        return {
-          ...item,
-          id: qItemId,
-          quotation_id: id,
-          discount_amount: discountVal,
-          tax_amount: taxVal,
-          amount: finalAmount
-        };
-      });
-
-      const grand_total = subtotal - totalDiscount + totalTax;
-
-      computedUpdates = {
-        ...computedUpdates,
+    // Insert quotation
+    const { data: newQuo, error: quoErr } = await supabase
+      .from('quotations')
+      .insert({
+        ...quotationData,
+        quotation_code: newCode,
         subtotal,
         discount_amount: totalDiscount,
         tax_amount: totalTax,
-        grand_total
-      };
+        grand_total,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      })
+      .select()
+      .single();
 
-      store.quotationItems.push(...newItems);
+    if (quoErr || !newQuo) {
+      console.error('Error creating quotation:', quoErr);
+      throw new Error(quoErr?.message || 'Failed to create quotation');
     }
 
-    const updatedQuotation = {
-      ...oldVal,
-      ...computedUpdates,
-      updated_at: new Date().toISOString()
-    };
-
-    store.quotations[index] = updatedQuotation;
-
-    // Handle workflow changes
-    if (updates.status && updates.status !== oldVal.status) {
-      logActivity(
-        oldVal.customer_id,
-        'quotation',
-        id,
-        oldVal.quotation_code,
-        `Quotation status updated from ${oldVal.status} to ${updates.status}.`,
-        'status_change'
-      );
-
-      // Auto-update linked enquiry status
-      const enq = store.enquiries.find(e => e.id === oldVal.enquiry_id);
-      if (enq) {
-        if (updates.status === 'Accepted') {
-          enq.status = 'Won';
-        } else if (updates.status === 'Rejected') {
-          enq.status = 'Lost';
-        } else if (updates.status === 'Sent') {
-          enq.status = 'Quotation Sent';
-        } else if (updates.status === 'Negotiation') {
-          enq.status = 'Negotiation';
-        }
-        enq.updated_at = new Date().toISOString();
-      }
-    } else {
-      logActivity(oldVal.customer_id, 'quotation', id, oldVal.quotation_code, `Quotation details updated.`, 'update');
+    // Insert quotation line items
+    for (const pItem of preparedItems) {
+      await supabase
+        .from('quotation_items')
+        .insert({
+          ...pItem,
+          quotation_id: newQuo.id
+        });
     }
 
-    saveStore(store);
-    return updatedQuotation;
+    await logActivity(
+      quotationData.customer_id,
+      'quotation',
+      newQuo.id,
+      newCode,
+      `Quotation ${newCode} generated for total ₹${grand_total.toLocaleString('en-IN')}.`
+    );
+
+    return newQuo;
   },
 
-  async approve(id: string, approverId: string, remarks?: string): Promise<Quotation> {
-    return this.update(id, {
-      status: 'Approved',
-      approved_by: approverId,
-      approved_at: new Date().toISOString(),
-      approval_remarks: remarks
-    });
+  async update(
+    id: string,
+    updates: Partial<Quotation>,
+    newItems?: Omit<QuotationItem, 'id' | 'quotation_id' | 'amount' | 'discount_amount' | 'tax_amount'>[]
+  ): Promise<Quotation> {
+    const current = await this.getById(id);
+
+    const { data, error } = await supabase
+      .from('quotations')
+      .update({
+        ...updates,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error || !data) {
+      console.error('Error updating quotation:', error);
+      throw new Error(error?.message || 'Failed to update quotation');
+    }
+
+    if (newItems && newItems.length > 0) {
+      // Replace quotation line items
+      await supabase.from('quotation_items').delete().eq('quotation_id', id);
+      for (const item of newItems) {
+        const itemAmount = item.rate * 1;
+        const discountVal = itemAmount * (item.discount_percent / 100);
+        const netAmount = itemAmount - discountVal;
+        const taxVal = netAmount * (item.tax_percent / 100);
+        await supabase
+          .from('quotation_items')
+          .insert({
+            ...item,
+            quotation_id: id,
+            discount_amount: discountVal,
+            tax_amount: taxVal,
+            amount: netAmount + taxVal
+          });
+      }
+    }
+
+    if (current && updates.status && updates.status !== current.status) {
+      await logActivity(
+        current.customer_id,
+        'quotation',
+        id,
+        current.quotation_code,
+        `Quotation status moved to ${updates.status}.`,
+        'status_change'
+      );
+    }
+
+    return data;
+  },
+
+  async approve(id: string, approvedBy: string, remarks?: string): Promise<Quotation> {
+    const current = await this.getById(id);
+    if (!current) throw new Error('Quotation not found');
+
+    const { data, error } = await supabase
+      .from('quotations')
+      .update({
+        status: 'Approved',
+        approved_by: approvedBy,
+        approved_at: new Date().toISOString(),
+        approval_remarks: remarks || 'Approved by Manager',
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error || !data) {
+      throw new Error(error?.message || 'Failed to approve quotation');
+    }
+
+    await logActivity(
+      current.customer_id,
+      'quotation',
+      id,
+      current.quotation_code,
+      `Quotation ${current.quotation_code} was officially approved.`,
+      'status_change'
+    );
+
+    return data;
   },
 
   async delete(id: string): Promise<void> {
-    const store = getStore();
-    const index = store.quotations.findIndex(q => q.id === id);
-    if (index === -1) throw new Error('Quotation not found');
+    const current = await this.getById(id);
+    const { error } = await supabase.from('quotations').delete().eq('id', id);
+    if (error) throw new Error(error.message);
 
-    const quo = store.quotations[index];
-    store.quotations = store.quotations.filter(q => q.id !== id);
-    store.quotationItems = store.quotationItems.filter(qi => qi.quotation_id !== id);
-
-    saveStore(store);
-    logActivity(quo.customer_id, 'quotation', id, quo.quotation_code, `Quotation ${quo.quotation_code} deleted.`, 'delete');
+    if (current) {
+      await logActivity(
+        current.customer_id,
+        'quotation',
+        id,
+        current.quotation_code,
+        `Quotation ${current.quotation_code} deleted.`,
+        'delete'
+      );
+    }
   }
 };

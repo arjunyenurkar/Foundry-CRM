@@ -17,7 +17,7 @@ export function TopNav({ onMenuClick, onQuickAdd }: { onMenuClick: () => void; o
   const { theme, setTheme } = useTheme();
   const { toast } = useToast();
   const { 
-    currentUser, notifications, markNotificationRead, markAllNotificationsRead, resetDemoData, logout 
+    currentUser, notifications, markNotificationRead, markAllNotificationsRead, refreshData, logout 
   } = useCRM();
   
   const [searchOpen, setSearchOpen] = useState(false);
@@ -25,6 +25,7 @@ export function TopNav({ onMenuClick, onQuickAdd }: { onMenuClick: () => void; o
   const [themeOpen, setThemeOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [quickAddOpen, setQuickAddOpen] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const notifRef = useRef<HTMLDivElement>(null);
   const themeRef = useRef<HTMLDivElement>(null);
@@ -75,11 +76,15 @@ export function TopNav({ onMenuClick, onQuickAdd }: { onMenuClick: () => void; o
   const pageTitle = breadcrumbs[breadcrumbs.length - 1]?.label || 'Dashboard';
   const unreadNotifs = notifications.filter(n => !n.read);
 
-  const handleResetDemo = () => {
-    if (confirm('Are you sure you want to reset all mock data to the default seeded values? This will wipe your local changes.')) {
-      resetDemoData();
-      toast('Demo data has been successfully reset.', 'success');
-      router.push('/');
+  const handleRefresh = async () => {
+    try {
+      setIsRefreshing(true);
+      await refreshData();
+      toast('Live Supabase data refreshed.', 'success');
+    } catch (e: any) {
+      toast('Failed to refresh data: ' + e.message, 'error');
+    } finally {
+      setIsRefreshing(false);
     }
   };
 
@@ -179,15 +184,16 @@ export function TopNav({ onMenuClick, onQuickAdd }: { onMenuClick: () => void; o
           )}
         </div>
 
-        {/* Reset Demo Data Button */}
+        {/* Refresh Live Data Button */}
         <button
-          onClick={handleResetDemo}
-          className="p-2 border border-slate-200/50 dark:border-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-900 text-slate-400 hover:text-amber-500 dark:hover:text-amber-400 rounded-xl transition-colors relative group"
-          title="Reset Demo Data"
+          onClick={handleRefresh}
+          disabled={isRefreshing}
+          className="p-2 border border-slate-200/50 dark:border-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-900 text-slate-400 hover:text-blue-500 dark:hover:text-blue-400 rounded-xl transition-colors relative group cursor-pointer disabled:opacity-50"
+          title="Refresh Data"
         >
-          <RefreshCw className="w-4.5 h-4.5" />
+          <RefreshCw className={`w-4.5 h-4.5 ${isRefreshing ? 'animate-spin text-blue-500' : ''}`} />
           <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-slate-900 text-slate-100 text-[10px] px-2 py-1 rounded shadow-md whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none">
-            Reset Demo Data
+            {isRefreshing ? 'Refreshing...' : 'Refresh Live Data'}
           </span>
         </button>
 

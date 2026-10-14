@@ -1,51 +1,93 @@
-import { TechnicalEvaluation, TechnicalEvaluationStatus } from '../types';
-import { getStore, saveStore, logActivity } from './localStore';
+import { TechnicalEvaluation } from '../types';
+import { supabase } from '../lib/supabaseClient';
+import { logActivity } from './localStore';
 
 export const TechnicalService = {
   async getAll(): Promise<TechnicalEvaluation[]> {
-    const store = getStore();
-    return store.technicalEvaluations;
+    const { data, error } = await supabase
+      .from('technical_evaluations')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching technical evaluations from Supabase:', error);
+      return [];
+    }
+    return data || [];
   },
 
   async getById(id: string): Promise<TechnicalEvaluation | undefined> {
-    const store = getStore();
-    return store.technicalEvaluations.find(te => te.id === id);
+    const { data, error } = await supabase
+      .from('technical_evaluations')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (error) {
+      console.error('Error fetching technical evaluation by id:', error);
+      return undefined;
+    }
+    return data || undefined;
   },
 
   async getByEnquiryId(enquiryId: string): Promise<TechnicalEvaluation[]> {
-    const store = getStore();
-    return store.technicalEvaluations.filter(te => te.enquiry_id === enquiryId);
+    const { data, error } = await supabase
+      .from('technical_evaluations')
+      .select('*')
+      .eq('enquiry_id', enquiryId);
+
+    if (error) {
+      console.error('Error fetching technical evaluations by enquiryId:', error);
+      return [];
+    }
+    return data || [];
   },
 
   async update(id: string, updates: Partial<TechnicalEvaluation>): Promise<TechnicalEvaluation> {
-    const store = getStore();
-    const index = store.technicalEvaluations.findIndex(te => te.id === id);
-    if (index === -1) throw new Error('Technical evaluation not found');
+    const current = await this.getById(id);
 
-    const oldVal = store.technicalEvaluations[index];
-    const updatedTe = {
-      ...oldVal,
-      ...updates,
-      updated_at: new Date().toISOString()
-    };
+    const { data, error } = await supabase
+      .from('technical_evaluations')
+      .update({
+        ...updates,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', id)
+      .select()
+      .single();
 
-    store.technicalEvaluations[index] = updatedTe;
+    if (error || !data) {
+      console.error('Error updating technical evaluation:', error);
+      throw new Error(error?.message || 'Failed to update technical evaluation');
+    }
 
-    // If status is updated to Approved, check if all items in the enquiry are evaluated.
-    // If so, we can auto-update the Enquiry status to "Quotation Pending"!
-    // This connects the workflow automatically.
-    if (updates.status && updates.status !== oldVal.status) {
-      const enq = store.enquiries.find(e => e.id === oldVal.enquiry_id);
+    if (current && updates.status && updates.status !== current.status) {
+      // Find enquiry
+      const { data: enq } = await supabase
+        .from('enquiries')
+        .select('*')
+        .eq('id', current.enquiry_id)
+        .single();
+
       if (enq) {
         // Find other evaluations for this enquiry
-        const siblingEvaluations = store.technicalEvaluations.filter(te => te.enquiry_id === oldVal.enquiry_id && te.id !== id);
-        const allEvaluated = [updatedTe, ...siblingEvaluations].every(te => te.status === 'Approved');
-        
-        if (allEvaluated && enq.status === 'Technical Evaluation') {
-          enq.status = 'Quotation Pending';
-          enq.updated_at = new Date().toISOString();
-          
-          logActivity(
+        const { data: siblingEvaluations } = await supabase
+          .from('technical_evaluations')
+          .select('status')
+          .eq('enquiry_id', current.enquiry_id);
+
+        const allApproved = siblingEvaluations && siblingEvaluations.length > 0 && siblingEvaluations.every(te => te.status === 'Approved');
+
+        if (allApproved && enq.status === 'Technical Evaluation') {
+          await supabase
+            .from('enquiries')
+            .update({
+              status: 'Quotation Pending',
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', enq.id);
+
+          await logActivity(
             enq.customer_id,
             'enquiry',
             enq.id,
@@ -55,7 +97,7 @@ export const TechnicalService = {
           );
         }
 
-        logActivity(
+        await logActivity(
           enq.customer_id,
           'technical',
           id,
@@ -66,7 +108,6 @@ export const TechnicalService = {
       }
     }
 
-    saveStore(store);
-    return updatedTe;
+    return data;
   }
 };

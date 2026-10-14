@@ -1,99 +1,47 @@
-import { 
-  Customer, Enquiry, Item, EnquiryItem, TechnicalEvaluation, 
-  Quotation, QuotationItem, FollowUp, Order, OrderItem, 
-  Dispatch, DispatchItem, Complaint, Profile, Activity, Notification 
-} from '../types';
-import * as initialData from '../lib/mockData';
+import { Profile, Activity } from '../types';
+import { supabase } from '../lib/supabaseClient';
 
 const IS_SERVER = typeof window === 'undefined';
 
-interface DBState {
-  users: Profile[];
-  customers: Customer[];
-  items: Item[];
-  enquiries: Enquiry[];
-  enquiryItems: EnquiryItem[];
-  technicalEvaluations: TechnicalEvaluation[];
-  quotations: Quotation[];
-  quotationItems: QuotationItem[];
-  followUps: FollowUp[];
-  orders: Order[];
-  orderItems: OrderItem[];
-  dispatches: Dispatch[];
-  dispatchItems: DispatchItem[];
-  complaints: Complaint[];
-  activities: Activity[];
-  notifications: Notification[];
-  currentUser: Profile;
-}
-
-const getInitialState = (): DBState => {
-  return {
-    users: [...initialData.mockUsers],
-    customers: [...initialData.mockCustomers],
-    items: [...initialData.mockItems],
-    enquiries: [...initialData.mockEnquiries],
-    enquiryItems: [...initialData.mockEnquiryItems],
-    technicalEvaluations: [...initialData.mockTechnicalEvaluations],
-    quotations: [...initialData.mockQuotations],
-    quotationItems: [...initialData.mockQuotationItems],
-    followUps: [...initialData.mockFollowUps],
-    orders: [...initialData.mockOrders],
-    orderItems: [...initialData.mockOrderItems],
-    dispatches: [...initialData.mockDispatches],
-    dispatchItems: [...initialData.mockDispatchItems],
-    complaints: [...initialData.mockComplaints],
-    activities: [...initialData.mockActivities],
-    notifications: [...initialData.mockNotifications],
-    currentUser: initialData.mockUsers[0], // Default is Sohail Khan (Marketing Manager)
-  };
-};
-
-export const getStore = (): DBState => {
-  if (IS_SERVER) {
-    return getInitialState();
-  }
-  const data = localStorage.getItem('truform_crm_db_v2');
-  if (!data) {
-    const state = getInitialState();
-    localStorage.setItem('truform_crm_db_v2', JSON.stringify(state));
-    return state;
-  }
+export const getStoredUser = (): Profile | null => {
+  if (IS_SERVER) return null;
+  const user = localStorage.getItem('truform_crm_user');
+  if (!user) return null;
   try {
-    return JSON.parse(data);
+    return JSON.parse(user);
   } catch (e) {
-    const state = getInitialState();
-    localStorage.setItem('truform_crm_db_v2', JSON.stringify(state));
-    return state;
+    return null;
   }
 };
 
-export const saveStore = (state: DBState) => {
+export const setStoredUser = (user: Profile) => {
   if (IS_SERVER) return;
-  localStorage.setItem('truform_crm_db_v2', JSON.stringify(state));
+  localStorage.setItem('truform_crm_user', JSON.stringify(user));
 };
 
-export const resetStore = () => {
+export const clearStoredUser = () => {
   if (IS_SERVER) return;
-  const state = getInitialState();
-  localStorage.setItem('truform_crm_db_v2', JSON.stringify(state));
+  localStorage.removeItem('truform_crm_user');
+  localStorage.removeItem('crm_authenticated');
 };
 
-// Generates next readable code like CUS-00021, ENQ-00031, ITM-00006
+// Generates next readable sequential code like CUS-00006, ENQ-00003, ITM-00006
 export const generateCode = (prefix: string, list: { customer_code?: string; enquiry_code?: string; quotation_code?: string; order_code?: string; complaint_code?: string; follow_up_code?: string; dispatch_code?: string; item_code?: string }[]): string => {
   let maxNum = 0;
-  list.forEach(item => {
-    const code = item.customer_code || item.enquiry_code || item.quotation_code || item.order_code || item.complaint_code || item.follow_up_code || item.dispatch_code || item.item_code || '';
-    const numPart = code.split('-')[1];
-    if (numPart) {
-      const val = parseInt(numPart, 10);
-      if (val > maxNum) maxNum = val;
-    }
-  });
+  if (list && Array.isArray(list)) {
+    list.forEach(item => {
+      const code = item.customer_code || item.enquiry_code || item.quotation_code || item.order_code || item.complaint_code || item.follow_up_code || item.dispatch_code || item.item_code || '';
+      const parts = code.split('-');
+      if (parts.length > 1) {
+        const val = parseInt(parts[1], 10);
+        if (!isNaN(val) && val > maxNum) maxNum = val;
+      }
+    });
+  }
   return `${prefix}-${String(maxNum + 1).padStart(5, '0')}`;
 };
 
-export const logActivity = (
+export const logActivity = async (
   customerId: string,
   entityType: Activity['entity_type'],
   entityId: string,
@@ -101,19 +49,22 @@ export const logActivity = (
   description: string,
   actionType: Activity['action_type'] = 'create'
 ) => {
-  const store = getStore();
-  const newActivity: Activity = {
-    id: `act-${Date.now()}`,
-    customer_id: customerId,
-    user_id: store.currentUser.id,
-    user_name: store.currentUser.name,
-    action_type: actionType,
-    entity_type: entityType,
-    entity_id: entityId,
-    entity_code: entityCode,
-    description,
-    created_at: new Date().toISOString(),
-  };
-  store.activities.unshift(newActivity);
-  saveStore(store);
+  try {
+    const user = getStoredUser();
+    await supabase
+      .from('activities')
+      .insert({
+        customer_id: customerId,
+        user_id: user?.id || null,
+        user_name: user?.name || 'System Operator',
+        action_type: actionType,
+        entity_type: entityType,
+        entity_id: entityId,
+        entity_code: entityCode,
+        description,
+        created_at: new Date().toISOString()
+      });
+  } catch (err) {
+    console.error('Failed to log activity to Supabase:', err);
+  }
 };

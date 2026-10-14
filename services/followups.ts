@@ -1,104 +1,129 @@
-import { FollowUp, FollowUpStatus } from '../types';
-import { getStore, saveStore, generateCode, logActivity } from './localStore';
+import { FollowUp } from '../types';
+import { supabase } from '../lib/supabaseClient';
+import { generateCode, logActivity } from './localStore';
 
 export const FollowUpService = {
   async getAll(): Promise<FollowUp[]> {
-    const store = getStore();
-    return store.followUps;
+    const { data, error } = await supabase
+      .from('follow_ups')
+      .select('*')
+      .order('follow_up_date', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching follow ups:', error);
+      return [];
+    }
+    return data || [];
   },
 
   async getById(id: string): Promise<FollowUp | undefined> {
-    const store = getStore();
-    return store.followUps.find(f => f.id === id);
+    const { data, error } = await supabase
+      .from('follow_ups')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (error) {
+      console.error('Error fetching follow up by id:', error);
+      return undefined;
+    }
+    return data || undefined;
   },
 
   async getByCustomerId(customerId: string): Promise<FollowUp[]> {
-    const store = getStore();
-    return store.followUps.filter(f => f.customer_id === customerId);
+    const { data, error } = await supabase
+      .from('follow_ups')
+      .select('*')
+      .eq('customer_id', customerId);
+
+    if (error) {
+      console.error('Error fetching follow ups for customer:', error);
+      return [];
+    }
+    return data || [];
   },
 
   async create(followUpData: Omit<FollowUp, 'id' | 'follow_up_code' | 'created_at'>): Promise<FollowUp> {
-    const store = getStore();
-    const newId = `fol-${Date.now()}`;
-    const newCode = generateCode('FOL', store.followUps);
+    const existing = await this.getAll();
+    const newCode = generateCode('FOL', existing);
 
-    const newFollowUp: FollowUp = {
-      ...followUpData,
-      id: newId,
-      follow_up_code: newCode,
-      created_at: new Date().toISOString(),
-    };
+    const { data, error } = await supabase
+      .from('follow_ups')
+      .insert({
+        ...followUpData,
+        follow_up_code: newCode,
+        created_at: new Date().toISOString()
+      })
+      .select()
+      .single();
 
-    store.followUps.unshift(newFollowUp);
-    
-    // Update Customer next follow up date and last contact date
-    const cIndex = store.customers.findIndex(c => c.id === followUpData.customer_id);
-    if (cIndex !== -1) {
-      store.customers[cIndex].last_contact_date = new Date().toISOString();
-      if (followUpData.status === 'Scheduled') {
-        store.customers[cIndex].next_follow_up_date = followUpData.follow_up_date;
-      } else if (followUpData.next_follow_up_date) {
-        store.customers[cIndex].next_follow_up_date = followUpData.next_follow_up_date;
-      }
+    if (error || !data) {
+      console.error('Error creating follow up:', error);
+      throw new Error(error?.message || 'Failed to create follow up');
     }
 
-    saveStore(store);
-    logActivity(followUpData.customer_id, 'followup', newId, newCode, `Follow-up ${newCode} (${followUpData.follow_up_type}) scheduled.`);
+    // Update customer last contact date and next follow up date
+    await supabase
+      .from('customers')
+      .update({
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', followUpData.customer_id);
 
-    return newFollowUp;
+    await logActivity(
+      followUpData.customer_id,
+      'followup',
+      data.id,
+      newCode,
+      `Follow-up ${newCode} (${followUpData.follow_up_type}) scheduled.`
+    );
+
+    return data;
   },
 
   async update(id: string, updates: Partial<FollowUp>): Promise<FollowUp> {
-    const store = getStore();
-    const index = store.followUps.findIndex(f => f.id === id);
-    if (index === -1) throw new Error('Follow-up not found');
+    const current = await this.getById(id);
 
-    const oldVal = store.followUps[index];
-    const updatedFollowUp = {
-      ...oldVal,
-      ...updates
-    };
+    const { data, error } = await supabase
+      .from('follow_ups')
+      .update(updates)
+      .eq('id', id)
+      .select()
+      .single();
 
-    store.followUps[index] = updatedFollowUp;
-
-    // Sync dates with customer
-    const cIndex = store.customers.findIndex(c => c.id === oldVal.customer_id);
-    if (cIndex !== -1) {
-      if (updates.status === 'Completed' && updates.next_follow_up_date) {
-        store.customers[cIndex].next_follow_up_date = updates.next_follow_up_date;
-        store.customers[cIndex].last_contact_date = new Date().toISOString();
-      } else if (updates.follow_up_date && updatedFollowUp.status === 'Scheduled') {
-        store.customers[cIndex].next_follow_up_date = updates.follow_up_date;
-      }
+    if (error || !data) {
+      console.error('Error updating follow up:', error);
+      throw new Error(error?.message || 'Failed to update follow up');
     }
 
-    saveStore(store);
-
-    if (updates.status && updates.status !== oldVal.status) {
-      logActivity(
-        oldVal.customer_id,
+    if (current && updates.status && updates.status !== current.status) {
+      await logActivity(
+        current.customer_id,
         'followup',
         id,
-        oldVal.follow_up_code,
-        `Follow-up status changed from ${oldVal.status} to ${updates.status}.`,
+        current.follow_up_code,
+        `Follow-up status marked as ${updates.status}.`,
         'status_change'
       );
-    } else {
-      logActivity(oldVal.customer_id, 'followup', id, oldVal.follow_up_code, `Follow-up details updated.`, 'update');
     }
 
-    return updatedFollowUp;
+    return data;
   },
 
   async delete(id: string): Promise<void> {
-    const store = getStore();
-    const index = store.followUps.findIndex(f => f.id === id);
-    if (index === -1) throw new Error('Follow-up not found');
+    const current = await this.getById(id);
+    const { error } = await supabase.from('follow_ups').delete().eq('id', id);
+    if (error) throw new Error(error.message);
 
-    const fol = store.followUps[index];
-    store.followUps = store.followUps.filter(f => f.id !== id);
-    saveStore(store);
-
-    logActivity(fol.customer_id, 'followup', id, fol.follow_up_code, `Follow-up ${fol.follow_up_code} deleted.`, 'delete');
+    if (current) {
+      await logActivity(
+        current.customer_id,
+        'followup',
+        id,
+        current.follow_up_code,
+        `Follow-up ${current.follow_up_code} deleted.`,
+        'delete'
+      );
+    }
   }
 };

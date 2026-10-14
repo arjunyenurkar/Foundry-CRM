@@ -23,7 +23,7 @@ export default function Dashboard() {
   } = useCRM();
 
   // Filters
-  const [dateFilter, setDateFilter] = useState('This Month');
+  const [dateFilter, setDateFilter] = useState('All Time');
   const [salesFilter, setSalesFilter] = useState('all');
   const [customerFilter, setCustomerFilter] = useState('all');
   const [industryFilter, setIndustryFilter] = useState('all');
@@ -36,20 +36,21 @@ export default function Dashboard() {
 
   // Filter lists based on selections
   const getFilteredData = () => {
-    // Determine date thresholds (Current local date in mock context is 2026-08-16)
-    const baseDate = new Date('2026-08-16T23:59:59Z');
-    let startDate = new Date('2026-01-01T00:00:00Z');
+    // Current date threshold
+    const baseDate = new Date();
+    let startDate = new Date(baseDate.getFullYear(), 0, 1);
 
     if (dateFilter === 'Today') {
-      startDate = new Date('2026-08-16T00:00:00Z');
+      startDate = new Date(baseDate.getFullYear(), baseDate.getMonth(), baseDate.getDate());
     } else if (dateFilter === 'This Week') {
       startDate = new Date(baseDate.getTime() - 7 * 24 * 60 * 60 * 1000);
     } else if (dateFilter === 'This Month') {
-      startDate = new Date('2026-08-01T00:00:00Z');
+      startDate = new Date(baseDate.getFullYear(), baseDate.getMonth(), 1);
     } else if (dateFilter === 'This Quarter') {
-      startDate = new Date('2026-07-01T00:00:00Z');
+      const qMonth = Math.floor(baseDate.getMonth() / 3) * 3;
+      startDate = new Date(baseDate.getFullYear(), qMonth, 1);
     } else if (dateFilter === 'This Year') {
-      startDate = new Date('2026-01-01T00:00:00Z');
+      startDate = new Date(baseDate.getFullYear(), 0, 1);
     }
 
     const filterFn = (item: any) => {

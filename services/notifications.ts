@@ -1,29 +1,53 @@
 import { Notification } from '../types';
-import { getStore, saveStore } from './localStore';
+import { supabase } from '../lib/supabaseClient';
 
 export const NotificationService = {
   async getAll(): Promise<Notification[]> {
-    const store = getStore();
-    return store.notifications;
+    const { data, error } = await supabase
+      .from('notifications')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching notifications:', error);
+      return [];
+    }
+    return data || [];
   },
 
   async getUnread(): Promise<Notification[]> {
-    const store = getStore();
-    return store.notifications.filter(n => !n.read);
+    const { data, error } = await supabase
+      .from('notifications')
+      .select('*')
+      .eq('read', false)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching unread notifications:', error);
+      return [];
+    }
+    return data || [];
   },
 
   async markAsRead(id: string): Promise<void> {
-    const store = getStore();
-    const notification = store.notifications.find(n => n.id === id);
-    if (notification) {
-      notification.read = true;
-      saveStore(store);
+    const { error } = await supabase
+      .from('notifications')
+      .update({ read: true })
+      .eq('id', id);
+
+    if (error) {
+      console.error('Error marking notification as read:', error);
     }
   },
 
   async markAllAsRead(): Promise<void> {
-    const store = getStore();
-    store.notifications.forEach(n => n.read = true);
-    saveStore(store);
+    const { error } = await supabase
+      .from('notifications')
+      .update({ read: true })
+      .eq('read', false);
+
+    if (error) {
+      console.error('Error marking all notifications as read:', error);
+    }
   }
 };
