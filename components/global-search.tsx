@@ -2,11 +2,11 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { Search, FileText, User, ShoppingBag, AlertOctagon, HelpCircle, HardDrive } from 'lucide-react';
+import { Search, FileText, User, ShoppingBag, AlertOctagon, HelpCircle } from 'lucide-react';
 import { useCRM } from './crm-provider';
 
 interface SearchResult {
-  type: 'Customer' | 'Enquiry' | 'Item' | 'Quotation' | 'Order' | 'Complaint';
+  type: 'Customer' | 'Enquiry' | 'Quotation' | 'Order' | 'Complaint';
   id: string;
   code: string;
   name: string;
@@ -16,7 +16,7 @@ interface SearchResult {
 
 export function GlobalSearch({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
   const router = useRouter();
-  const { customers, enquiries, items, quotations, orders, complaints } = useCRM();
+  const { customers, enquiries, quotations, orders, complaints } = useCRM();
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<SearchResult[]>([]);
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -69,20 +69,6 @@ export function GlobalSearch({ isOpen, onClose }: { isOpen: boolean; onClose: ()
       }
     });
 
-    // Search Items
-    items.forEach(i => {
-      if (i.item_name.toLowerCase().includes(q) || i.item_code.toLowerCase().includes(q) || i.drawing_number.toLowerCase().includes(q)) {
-        searchResults.push({
-          type: 'Item',
-          id: i.id,
-          code: i.item_code,
-          name: `${i.item_name} (Drawing: ${i.drawing_number})`,
-          status: i.active_status ? 'Active' : 'Inactive',
-          url: `/items`
-        });
-      }
-    });
-
     // Search Quotations
     quotations.forEach(qu => {
       const customer = customers.find(c => c.id === qu.customer_id);
@@ -130,7 +116,7 @@ export function GlobalSearch({ isOpen, onClose }: { isOpen: boolean; onClose: ()
 
     setResults(searchResults.slice(0, 10)); // Limit to top 10
     setSelectedIndex(0);
-  }, [query, customers, enquiries, items, quotations, orders, complaints]);
+  }, [query, customers, enquiries, quotations, orders, complaints]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -220,7 +206,6 @@ export function GlobalSearch({ isOpen, onClose }: { isOpen: boolean; onClose: ()
                   >
                     {res.type === 'Customer' && <User className="w-4.5 h-4.5 text-blue-500 shrink-0" />}
                     {res.type === 'Enquiry' && <FileText className="w-4.5 h-4.5 text-amber-500 shrink-0" />}
-                    {res.type === 'Item' && <HardDrive className="w-4.5 h-4.5 text-indigo-500 shrink-0" />}
                     {res.type === 'Quotation' && <FileText className="w-4.5 h-4.5 text-purple-500 shrink-0" />}
                     {res.type === 'Order' && <ShoppingBag className="w-4.5 h-4.5 text-emerald-500 shrink-0" />}
                     {res.type === 'Complaint' && <AlertOctagon className="w-4.5 h-4.5 text-rose-500 shrink-0" />}

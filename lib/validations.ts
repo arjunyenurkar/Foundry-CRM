@@ -15,7 +15,7 @@ export const CustomerSchema = z.object({
   city: z.string().min(2, 'City is required'),
   state: z.string().min(2, 'State is required'),
   country: z.string().min(2, 'Country is required'),
-  pin_code: z.string().regex(/^[0-9a-zA-Z\s-]{5,10}$/, 'Invalid PIN code'),
+  pin_code: z.string().regex(/^[1-9][0-9]{5}$/, 'PIN code must be a valid 6-digit Indian postal code'),
   gst_number: z.string().optional().or(z.literal('')),
   pan_number: z.string().optional().or(z.literal('')),
   source: z.enum(['Website', 'Referral', 'Existing Customer', 'Sales Visit', 'Exhibition', 'Cold Call', 'Email', 'Other']),

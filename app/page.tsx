@@ -6,7 +6,7 @@ import { useCRM } from '../components/crm-provider';
 import { useTheme } from '../components/theme-provider';
 import { 
   Factory, ShieldCheck, FileText, ArrowRight, Sun, Moon, 
-  Monitor, TrendingUp, BarChart3, Truck, ClipboardList, Lock,
+  Monitor, TrendingUp, BarChart3, ClipboardList, Lock,
   Sparkles, CheckCircle2, ChevronRight, Zap
 } from 'lucide-react';
 
@@ -92,7 +92,7 @@ export default function LandingPage() {
         </h1>
 
         <p className="text-sm md:text-base text-slate-500 dark:text-slate-400 max-w-2xl font-medium leading-relaxed">
-          From OEM enquiries and methodologist technical evaluations to margin approvals, dispatch trackers, and quality audits. Monitor your high-precision cast components lifecycle in a single suite.
+          From OEM enquiries and quotation approvals to sales orders, active follow-ups, and quality CAPA audits. Monitor your commercial sales lifecycle in a single suite.
         </p>
 
         {/* CTA Buttons */}
@@ -117,7 +117,7 @@ export default function LandingPage() {
             href="#features"
             className="px-6 py-3 rounded-xl border border-slate-200/60 dark:border-slate-800/60 hover:bg-slate-100/50 dark:hover:bg-slate-900/50 text-slate-600 dark:text-slate-350 transition-colors text-sm"
           >
-            Explore Feasibility Checklists
+            Explore Platform Features
           </a>
         </div>
 
@@ -148,21 +148,21 @@ export default function LandingPage() {
       <section id="features" className="w-full max-w-7xl mx-auto px-6 py-16 space-y-12">
         <div className="text-center max-w-2xl mx-auto space-y-2">
           <h2 className="text-2xl font-bold tracking-tight text-slate-950 dark:text-slate-50 uppercase">
-            Tailored Casting Capabilities
+            Tailored Commercial Capabilities
           </h2>
           <p className="text-xs text-slate-400 font-bold uppercase tracking-wider font-mono">Enterprise components management</p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 font-semibold text-xs text-slate-550 dark:text-slate-400">
           
-          {/* Box 1: Technical Checklists */}
+          {/* Box 1: Enquiry Tracking */}
           <div className="p-6 rounded-3xl border glass-panel flex flex-col gap-3">
             <div className="p-3 bg-blue-500/10 rounded-2xl text-blue-500 w-max">
               <ClipboardList className="w-6 h-6" />
             </div>
-            <h3 className="text-base font-bold text-slate-900 dark:text-slate-50 mt-1">Casting Feasibility Checklist</h3>
+            <h3 className="text-base font-bold text-slate-900 dark:text-slate-50 mt-1">Enquiry & Pipeline Management</h3>
             <p className="leading-relaxed">
-              Ensure strict methodology audits before releasing mold patterns. Checklist variables evaluate scrap estimates, cycle times, weight tolerances, and core box requirements.
+              Track OEM leads, customer specifications, and commercial requirements from initial prospect to deal conversion.
             </p>
           </div>
 
@@ -177,14 +177,14 @@ export default function LandingPage() {
             </p>
           </div>
 
-          {/* Box 3: Dispatch tracking */}
+          {/* Box 3: Quality & Complaints */}
           <div className="p-6 rounded-3xl border glass-panel flex flex-col gap-3">
             <div className="p-3 bg-emerald-500/10 rounded-2xl text-emerald-500 w-max">
-              <Truck className="w-6 h-6" />
+              <ShieldCheck className="w-6 h-6" />
             </div>
-            <h3 className="text-base font-bold text-slate-900 dark:text-slate-50 mt-1">Partial Shipments Ledger</h3>
+            <h3 className="text-base font-bold text-slate-900 dark:text-slate-50 mt-1">CAPA & Quality Resolution</h3>
             <p className="leading-relaxed">
-              Auto-calculate outstanding balances from customer purchase orders. Log partial deliveries against vehicle numbers and transporter bills of lading.
+              Log customer feedback and defect tickets. Track root-cause analysis (RCA), corrective actions, and preventive action plans to maintain high delivery standards.
             </p>
           </div>
 

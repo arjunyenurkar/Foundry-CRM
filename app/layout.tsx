@@ -7,7 +7,7 @@ import { AppLayout } from '../components/layout/app-layout';
 
 export const metadata: Metadata = {
   title: 'Truform CRM | Enterprise Sales Lifecycle',
-  description: 'Enterprise Sales CRM tailored for Truform Techno Products Pvt. Ltd. to manage Prospects, Leads, Enquiries, Technical Evaluations, Quotations, Orders, Dispatches, and Customer Complaints.',
+  description: 'Enterprise Sales CRM tailored for Truform Techno Products Pvt. Ltd. to manage Prospects, Leads, Enquiries, Quotations, Orders, Follow-ups, and Customer Complaints.',
   icons: {
     icon: '/favicon-logo.png',
   }

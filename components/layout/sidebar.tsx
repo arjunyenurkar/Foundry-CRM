@@ -5,8 +5,8 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  LayoutDashboard, Users, ClipboardList, HardDrive, Binary, 
-  FileSpreadsheet, CalendarClock, ShoppingBag, Truck, ShieldAlert, 
+  LayoutDashboard, Users, ClipboardList, 
+  FileSpreadsheet, CalendarClock, ShoppingBag, ShieldAlert, 
   BarChart3, Settings, ChevronLeft, ChevronRight, Menu, Factory, UserCheck, LogOut
 } from 'lucide-react';
 import { useCRM } from '../crm-provider';
@@ -15,12 +15,9 @@ const navItems = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { name: 'Customers & Leads', href: '/customers', icon: Users },
   { name: 'Enquiries', href: '/enquiries', icon: ClipboardList },
-  { name: 'Items', href: '/items', icon: HardDrive },
-  { name: 'Technical Eval', href: '/technical', icon: Binary },
   { name: 'Quotations', href: '/quotations', icon: FileSpreadsheet },
   { name: 'Follow-ups', href: '/followups', icon: CalendarClock },
   { name: 'Orders', href: '/orders', icon: ShoppingBag },
-  { name: 'Dispatch', href: '/dispatch', icon: Truck },
   { name: 'Complaints', href: '/complaints', icon: ShieldAlert },
   { name: 'Reports', href: '/reports', icon: BarChart3 },
   { name: 'Settings', href: '/settings', icon: Settings },

@@ -5,7 +5,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { useCRM } from '../../components/crm-provider';
 import { useToast } from '../../components/toast-provider';
 import { 
-  Search, Filter, ChevronRight, X, Truck, Calendar, ShoppingBag, 
+  Search, Filter, ChevronRight, X, Calendar, ShoppingBag, 
   DollarSign, FileCheck, CheckCircle2, Factory, RefreshCw
 } from 'lucide-react';
 import { format } from 'date-fns';
@@ -195,19 +195,6 @@ export default function OrdersPage() {
                   <option value="Completed">Completed</option>
                   <option value="Cancelled">Cancelled</option>
                 </select>
-              )}
-
-              {/* Dispatch shipping shortcut */}
-              {order.status !== 'Completed' && order.status !== 'Cancelled' && (
-                <button
-                  onClick={() => {
-                    toast('Redirecting to ship items for this order...', 'info');
-                    router.push(`/dispatch?orderId=${order.id}`);
-                  }}
-                  className="flex items-center gap-1 bg-emerald-500 hover:opacity-95 text-slate-50 px-2.5 py-1.5 rounded-lg text-[10px] font-bold cursor-pointer"
-                >
-                  <Truck className="w-3.5 h-3.5" /> Dispatch
-                </button>
               )}
 
               {/* Close */}

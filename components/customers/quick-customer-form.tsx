@@ -7,6 +7,7 @@ import { z } from 'zod';
 import { CustomerSchema } from '../../lib/validations';
 import { useCRM } from '../crm-provider';
 import { useToast } from '../toast-provider';
+import { AddressLocationSelector } from './address-location-selector';
 
 type FormValues = z.infer<typeof CustomerSchema>;
 
@@ -14,7 +15,7 @@ export function QuickCustomerForm({ onSuccess }: { onSuccess: () => void }) {
   const { createCustomer, users, currentUser } = useCRM();
   const { toast } = useToast();
 
-  const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<FormValues>({
+  const { register, handleSubmit, setValue, watch, formState: { errors, isSubmitting } } = useForm<FormValues>({
     resolver: zodResolver(CustomerSchema),
     defaultValues: {
       customer_type: 'OEM',
@@ -23,9 +24,14 @@ export function QuickCustomerForm({ onSuccess }: { onSuccess: () => void }) {
       sales_person_id: currentUser.id,
       country: 'India',
       state: 'Tamil Nadu',
-      city: 'Coimbatore'
+      city: 'Coimbatore',
+      pin_code: '641050'
     }
   });
+
+  const watchedState = watch('state');
+  const watchedCity = watch('city');
+  const watchedPinCode = watch('pin_code');
 
   const onSubmit = async (data: FormValues) => {
     try {
@@ -151,41 +157,18 @@ export function QuickCustomerForm({ onSuccess }: { onSuccess: () => void }) {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {/* City */}
-        <div>
-          <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">City *</label>
-          <input
-            type="text"
-            className="w-full glass-input text-sm text-slate-800 dark:text-slate-200"
-            {...register('city')}
-          />
-          {errors.city && <p className="text-rose-500 text-xs mt-1">{errors.city.message}</p>}
-        </div>
-
-        {/* State */}
-        <div>
-          <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">State *</label>
-          <input
-            type="text"
-            className="w-full glass-input text-sm text-slate-800 dark:text-slate-200"
-            {...register('state')}
-          />
-          {errors.state && <p className="text-rose-500 text-xs mt-1">{errors.state.message}</p>}
-        </div>
-
-        {/* Pin Code */}
-        <div>
-          <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">PIN Code *</label>
-          <input
-            type="text"
-            className="w-full glass-input text-sm text-slate-800 dark:text-slate-200"
-            placeholder="641050"
-            {...register('pin_code')}
-          />
-          {errors.pin_code && <p className="text-rose-500 text-xs mt-1">{errors.pin_code.message}</p>}
-        </div>
-      </div>
+      {/* Interactive State, City, PIN Code Selector with Two-Way Automatic Mapping */}
+      <AddressLocationSelector
+        selectedState={watchedState || ''}
+        selectedCity={watchedCity || ''}
+        selectedPinCode={watchedPinCode || ''}
+        onStateChange={(state) => setValue('state', state, { shouldValidate: true })}
+        onCityChange={(city) => setValue('city', city, { shouldValidate: true })}
+        onPinCodeChange={(pin) => setValue('pin_code', pin, { shouldValidate: true })}
+        stateError={errors.state?.message}
+        cityError={errors.city?.message}
+        pinCodeError={errors.pin_code?.message}
+      />
 
       {/* Address */}
       <div>

@@ -277,7 +277,7 @@ export default function EnquiriesPage() {
                         <div><span className="text-slate-400 block font-normal">Pattern:</span> {item.pattern_available ? 'Available' : 'Required'}</div>
                       </div>
 
-                      {/* Link to Feasibility report */}
+                      {/* Feasibility status */}
                       <div className="flex items-center justify-between border-t border-slate-200/20 pt-2 mt-3.5">
                         <span className="text-[10px] flex items-center gap-1">
                           <span className={`w-2 h-2 rounded-full ${
@@ -285,15 +285,8 @@ export default function EnquiriesPage() {
                             evalItem?.status === 'Rejected' ? 'bg-rose-500' :
                             'bg-amber-500'
                           }`} />
-                          Tech Feasibility: <span className="font-bold">{evalItem?.status || 'Pending'}</span>
+                          Feasibility Status: <span className="font-bold">{evalItem?.status || 'Pending'}</span>
                         </span>
-                        
-                        <button
-                          onClick={() => router.push('/technical')}
-                          className="text-[10px] font-bold text-blue-500 hover:text-blue-600 flex items-center gap-0.5 hover:underline"
-                        >
-                          Open Evaluation <Eye className="w-3.5 h-3.5" />
-                        </button>
                       </div>
                     </div>
                   );
